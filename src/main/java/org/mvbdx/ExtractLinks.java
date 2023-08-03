@@ -11,44 +11,49 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static java.net.URLDecoder.decode;
 
 public class ExtractLinks {
     private static final int MAX_DEPTH = 5;
-    public static final String URL_TO_CRAWL = "http://something.org/MOVIES/";
-    public static final String MKV_FORMAT = ".mkv";
-    public static final String MP4_FORMAT = ".mp4";
-
+    public static final List<String> URL_TO_CRAWLS = List.of("http://dl.gemescape.com/film/",
+            "http://dl2.gemescape.com/FILM/", "http://dl3.gemescape.com/FILM/", "http://dl4.gemescape.com/FILM/",
+            "http://dl5.gemescape.com/MOVIES/"); // "https://dl.ahaang.com/02/01/01/"
+    public static final List<String> IGNORE_LIST = List.of(".mkv", ".mp4", ".avi", ".srt",
+            ".zip", ".rar", ".jpg", ".mp3", ".flac",
+            "/ORG/", "/Trailer/", "/Dub/", "/Sub/", "/SoftSub/", "/Shot/",
+            "/Blu-ray/", "/BluRay/", "/Bluray/", "/IMAX.WEB-DL/", "/WEB/", "/WEB-DL/", "/WEB.HMAX/", "/IMAX/",
+            "/?C=S&O=D", "/?C=S&O=A", "/?C=M&O=D", "/?C=M&O=A", "/?C=N&O=A", "/?C=N&O=D");
 
     // create set and nested list for storing links and articles
-    private final HashSet<String> urlLinks;
-    private List<List<String>> articles;
+    private static final HashSet<String> urlLinks = new HashSet<>();
+    private static final List<List<String>> articles = new ArrayList<>();
 
-    // initialize set and list
-    public ExtractLinks() {
-        urlLinks = new HashSet<>();
-        articles = new ArrayList<>();
+    public static boolean isIgnoredUrl(String url) {
+        for (String ignoreType : IGNORE_LIST)
+            if (url.contains(ignoreType)) return true;
+        return false;
     }
 
-    public void getPageLinks(String URL, int depth) throws UnsupportedEncodingException, URISyntaxException {
+    public static void getPageLinks(String urls, int depth) throws UnsupportedEncodingException, URISyntaxException {
 
+//        for (String URL_TO_CRAWL : urls) {
         // we use the conditional statement to check whether we have already crawled the URL or not.
         // we also check whether the depth reaches to MAX_DEPTH or not
-        if (!urlLinks.contains(URL) && (depth < MAX_DEPTH) && URL.startsWith(URL_TO_CRAWL)) { // urlLinks.size() != 50
-            if (!URL.contains("?C="))
-                System.out.println(">> Depth: " + depth + " ( " + extractURIName(URL) + ") [" + URL + "]");
+        if (!urlLinks.contains(urls) && (depth < MAX_DEPTH) && urls.startsWith(urls)) { // urlLinks.size() != 50
+            if (!urls.contains("?C="))
+                System.out.println(">> Depth: " + depth + " ( " + extractURIName(urls) + " ) [" + urls + "]");
 
             // use try catch block for recursive process
             try {
                 // if the URL is not present in the set, we add it to the set
-                urlLinks.add(URL);
+                urlLinks.add(urls);
                 // fetch the HTML code of the given URL by using the connect() and get() method and store the result in Document
-                Document doc = Jsoup.connect(URL).get();
+                Document doc = Jsoup.connect(urls).get();
 
                 // we use the select() method to parse the HTML code for extracting links of other URLs and store them into Elements
                 Elements availableLinksOnPage = doc.select("a[href]");
@@ -58,22 +63,24 @@ public class ExtractLinks {
 
                 // for each extracted URL, we repeat above process
                 for (Element ele : availableLinksOnPage) {
-                    if (ele.attr("abs:href").startsWith(URL_TO_CRAWL)) {
+                    if (ele.attr("abs:href").startsWith(urls)) {
                         // call getPageLinks() method and pass the extracted URL to it as an argument
-                        getPageLinks(ele.attr("abs:href"), depth);
+                        if (!isIgnoredUrl(ele.attr("abs:href")))
+                            getPageLinks(ele.attr("abs:href"), depth);
                     }
                 }
             }
             // handle exception
             catch (IOException e) {
                 // print exception messages
-                System.err.println("For '" + URL + "': " + e.getMessage());
+                System.err.println("For '" + urls + "': " + e.getMessage());
             }
         }
+//        }
     }
 
     //Connect to each link saved in the article and find all the articles in the page
-    public void getArticles() {
+    public static void getArticles() {
         Iterator<String> i = urlLinks.iterator();
         while (i.hasNext()) {
             // create variable doc that store document data
@@ -101,11 +108,13 @@ public class ExtractLinks {
         }
     }
 
-    public void writeToFile(String fName) {
+    public static void writeToFile(String fName) {
         FileWriter wr;
         try {
             wr = new FileWriter(fName, true);
-            for (String strings : urlLinks) {
+            List<String> sortedList = new ArrayList<>(urlLinks);
+            Collections.sort(sortedList);
+            for (String strings : sortedList) {
                 try {
                     String article = extractURIName(strings) + " --> " + strings + "\n";
                     System.out.println(article);
@@ -123,25 +132,45 @@ public class ExtractLinks {
     }
 
     private static String extractURIName(String URL) throws URISyntaxException {
-        String extractedName = decode(URL, StandardCharsets.UTF_8).replace(URL_TO_CRAWL, "")
+        String extractedName = decode(URL, StandardCharsets.UTF_8)//.replace(parentURL, "")
                 .replace(".", " ");
-        if (extractedName.length() == 0 || extractedName.length() == URL_TO_CRAWL.length()) return "";
+        if (extractedName.length() == 0 /*|| extractedName.length() == URL.length()*/) return "";
 
         URI uri = new URI(URL);
         String path = uri.getPath();
-        String lastPartName = path.substring(0, path.length() - 1);
-        lastPartName = lastPartName.substring(lastPartName.lastIndexOf('/') + 1);
+        int lastIndexOfBackslash = (path.lastIndexOf("/") == path.length() - 1 ?
+                path.substring(0, path.length() - 1).lastIndexOf("/") : path.lastIndexOf("/"));
+        String lastPartName = (path.lastIndexOf("/") == path.length() - 1) ?
+                path.substring(lastIndexOfBackslash + 1, path.length() - 1) :
+                path.substring(lastIndexOfBackslash + 1);
 
         return (lastPartName.length() != 0 ? lastPartName : "");
     }
 
-    // main() method start
     public static void main(String[] args) throws UnsupportedEncodingException, URISyntaxException {
-        System.setProperty("http.proxyHost", "tmg-2.tosanltd.com");
-        System.setProperty("http.proxyPort", "8585");
-        ExtractLinks obj = new ExtractLinks();
-        obj.getPageLinks(URL_TO_CRAWL, 1);
-        // obj.getArticles();
-        obj.writeToFile("extracted.txt");
+//        System.setProperty("http.proxyHost", "tmg-2.tosanltd.com");
+//        System.setProperty("http.proxyPort", "8585");
+        long startTime = System.currentTimeMillis();
+
+        List<Callable<Void>> taskList = new ArrayList<>();
+        for (String url : URL_TO_CRAWLS) {
+            Callable<Void> callable = () -> {
+                getPageLinks(url, 1);
+                return null;
+            };
+            taskList.add(callable);
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(taskList.size());
+
+        try {
+            executor.invokeAll(taskList);
+        } catch (InterruptedException ignored) {
+        }
+
+        ExtractLinks.writeToFile("extracted.txt");
+        System.out.printf("total time ::: %d%n", (System.currentTimeMillis() - startTime) / 1000);
+        executor.shutdownNow();
+        // ExtractLinks.getArticles();
     }
 }
