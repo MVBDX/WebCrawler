@@ -137,6 +137,8 @@ public class ExtractLinks {
 
     // main() method start
     public static void main(String[] args) throws UnsupportedEncodingException, URISyntaxException {
+        System.setProperty("http.proxyHost", "tmg-2.tosanltd.com");
+        System.setProperty("http.proxyPort", "8585");
         ExtractLinks obj = new ExtractLinks();
         obj.getPageLinks(URL_TO_CRAWL, 1);
         // obj.getArticles();
