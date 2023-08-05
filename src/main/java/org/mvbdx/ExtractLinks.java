@@ -19,29 +19,40 @@ import java.util.concurrent.Executors;
 import static java.net.URLDecoder.decode;
 
 public class ExtractLinks {
-    private static final int MAX_DEPTH = 5;
-    public static final List<String> URL_TO_CRAWLS = List.of("http://dl.gemescape.com/film/",
-            "http://dl2.gemescape.com/FILM/", "http://dl3.gemescape.com/FILM/", "http://dl4.gemescape.com/FILM/",
-            "http://dl5.gemescape.com/MOVIES/"); // "https://dl.ahaang.com/02/01/01/"
-    public static final List<String> IGNORE_LIST = List.of(".mkv", ".mp4", ".avi", ".srt",
-            ".zip", ".rar", ".jpg", ".mp3", ".flac",
-            "/ORG/", "/Trailer/", "/Dub/", "/Sub/", "/SoftSub/", "/Shot/",
-            "/Blu-ray/", "/BluRay/", "/Bluray/", "/IMAX.WEB-DL/", "/WEB/", "/WEB-DL/", "/WEB.HMAX/", "/IMAX/",
-            "/?C=S&O=D", "/?C=S&O=A", "/?C=M&O=D", "/?C=M&O=A", "/?C=N&O=A", "/?C=N&O=D");
-
-    // create set and nested list for storing links and articles
     private static final HashSet<String> urlLinks = new HashSet<>();
     private static final List<List<String>> articles = new ArrayList<>();
+    private static final int MAX_DEPTH = 5;
+    public static final String FILENAME = "seriez.txt";
+    public static final List<String> URL_TO_CRAWLS = List.of("http://dl.gemescape.com/Series/", "http://dl2.gemescape.com/SERIES/",
+            "http://dl3.gemescape.com/SERIES/", "http://dl4.gemescape.com/SERIES/", "http://dl5.gemescape.com/SERIES/");
+
+    /* "https://dl.ahaang.com/mp3/fa/","https://dl.ahaang.com/00/","https://dl.ahaang.com/01/","https://dl.ahaang.com/02/",
+            "https://dl.ahaang.com/94/","https://dl.ahaang.com/95/","https://dl.ahaang.com/96/",
+            "https://dl.ahaang.com/97/","https://dl.ahaang.com/98/","https://dl.ahaang.com/99/"*/
+
+    /* "http://dl.gemescape.com/Series/", "http://dl2.gemescape.com/SERIES/",
+                "http://dl3.gemescape.com/SERIES/", "http://dl4.gemescape.com/SERIES/", "http://dl5.gemescape.com/SERIES/"*/
+
+    /* "http://dl.gemescape.com/film/", "http://dl2.gemescape.com/FILM/",
+            "http://dl3.gemescape.com/FILM/", "http://dl4.gemescape.com/FILM/", "http://dl5.gemescape.com/MOVIES/"*/
+
+    // https://dl5.gemexit.com/
+    public static final List<String> IGNORE_NAMES = List.of(".mkv", ".mp4", ".avi", ".srt", ".jpg",
+            ".rar", ".zip", ".mp3", ".flac",
+            "/ORG/", "/Trailer/", "/Dub/", "/Sub/", "/SoftSub/", "/Soft/", "/Shot/", "/Soundtrack/",
+            "/Blu-ray/", "/BluRay/", "/Bluray/", "/IMAX.WEB-DL/", "/WEB/", "/WEB-DL/", "/WEB.HMAX/", "/IMAX/",
+            "/480p/", "480p.x265", "/540p/", "/PSA/", "/Pahe/",
+            "/720p/", "/720p.HQ/", "/720p.HD/", "/720p.GTV/", "/720p.x265/", "/720p.Pahe/", "/720p.x265.Pahe/",
+            "/1080p/", "/1080p.HQ/", "/1080p.FHD/", "/1080p.x265/", "/1080p.x265.HDR/", "/1080p.Pahe/",
+            "/2160p/", "/2160p.x265/", "/2160p.x265.HDR/",
+            "/?C=S&O=D", "/?C=S&O=A", "/?C=M&O=D", "/?C=M&O=A", "/?C=N&O=A", "/?C=N&O=D");
 
     public static boolean isIgnoredUrl(String url) {
-        for (String ignoreType : IGNORE_LIST)
-            if (url.contains(ignoreType)) return true;
-        return false;
+        return IGNORE_NAMES.stream().anyMatch(url::contains);
     }
 
     public static void getPageLinks(String urls, int depth) throws UnsupportedEncodingException, URISyntaxException {
 
-//        for (String URL_TO_CRAWL : urls) {
         // we use the conditional statement to check whether we have already crawled the URL or not.
         // we also check whether the depth reaches to MAX_DEPTH or not
         if (!urlLinks.contains(urls) && (depth < MAX_DEPTH) && urls.startsWith(urls)) { // urlLinks.size() != 50
@@ -76,7 +87,6 @@ public class ExtractLinks {
                 System.err.println("For '" + urls + "': " + e.getMessage());
             }
         }
-//        }
     }
 
     //Connect to each link saved in the article and find all the articles in the page
@@ -168,7 +178,7 @@ public class ExtractLinks {
         } catch (InterruptedException ignored) {
         }
 
-        ExtractLinks.writeToFile("extracted.txt");
+        ExtractLinks.writeToFile(FILENAME);
         System.out.printf("total time ::: %d%n", (System.currentTimeMillis() - startTime) / 1000);
         executor.shutdownNow();
         // ExtractLinks.getArticles();
